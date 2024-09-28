@@ -1,0 +1,1 @@
+Bootstrapper.bindImmediate(function(){var Bootstrapper=window["Bootstrapper"];var ensightenOptions=Bootstrapper.ensightenOptions;Bootstrapper.on("click",'input[value\x3d"Join now"]',function(){Bootstrapper.ensEvent.trigger("Tcom Join Owners",this)})},-1,-1,-1);

@@ -1,0 +1,17 @@
+(function () {
+  var visitorObj = {
+    trackingServer: 'metrics.toyota.com',
+    cookieLifetime: '',
+    cookieDomain: '',
+    disableIdSyncs: false,
+    overwriteCrossDomainMCIDAndAID: true,
+    trackingServerSecure: 'smetrics.toyota.com',
+    marketingCloudServer: 'metrics.toyota.com',
+    marketingCloudServerSecure: 'smetrics.toyota.com',
+    loadTimeout: '',
+    idSyncContainerID: '',
+    secureCookie: false,
+    disableThirdPartyCookies: false
+  };
+  window.visitor = Visitor.getInstance('8F8B67C25245B30D0A490D4C@AdobeOrg', visitorObj);
+}());
