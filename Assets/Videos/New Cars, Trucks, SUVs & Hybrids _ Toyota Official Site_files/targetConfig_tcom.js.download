@@ -1,0 +1,102 @@
+// Target Configuration Toyota
+// PUWYLO updates 2023-07-07
+(function (window) {
+  window._dL = window._dL || {};
+  const dl = window._dL;
+  dl.pageConfig = dl.pageConfig || {};
+  dl.pageConfig.target = dl.pageConfig.target || {};
+  const targetProps = dl.pageConfig.target;
+  window.targetGlobalSettings = {
+    bodyHidingEnabled: targetProps.bodyHidingEnabled || false
+  };
+
+  const strip = (str = '') => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const dgAccum = (map, entry) => {
+    const key = strip(entry?.detail?.title);
+    map[key] = key;
+    return map;
+  }
+  const snapAccum = (map, entry) => {
+    const key = strip(entry?.detail?.model);
+    map[key] = key;
+    return map;
+  }
+
+  window.targetPageParams = function () {
+    var dl = window._dL || {};
+    var page = dl.page || {};
+    var config = dl.pageConfig || {};
+    var target = config.target || {};
+    // PUWYLO
+    const puwylo = {
+      hasSaves: false,
+      hasSnapshots: false,
+      shouldShow: false,
+      savedModels: '',
+      snapshotModels: ''
+    };
+
+    try {
+      const pu = JSON.parse(window.localStorage.getItem('UAT_REPORTER'));
+      // pu.applications.bap.history.snapshots.all.entrances
+      if (pu && pu.applications) {
+        const bap = (pu.applications || {}).bap || {};
+        const {
+          history = {}, dg_bap = []
+        } = bap;
+        const entrances = ((history.snapshots || {}).all || {}).entrances || [];
+        puwylo.hasSaves = dg_bap.length > 0;
+        puwylo.hasSnapshots = entrances.length > 0;
+        puwylo.shouldShow = puwylo.hasSnapshots || puwylo.hasSaves;
+        //puwylo.savedModels = dg_bap.map(entry=>(entry?.detail?.title||"").toLowerCase().replace(/[^a-z0-9]/g, '')).join(',');
+        if (puwylo.hasSaves) {
+          puwylo.savedModels = Object.keys(dg_bap.reduce(dgAccum, {})).join(',');
+        }
+        if (puwylo.hasSnapshots) {
+          puwylo.snapshotModels = Object.keys(entrances.reduce(snapAccum, {})).join(',');
+        }
+      }
+
+    } catch (e) {
+      console.log('Cannot send PUWYLO to Target');
+    }
+
+    return Object.assign({
+      at_property: target.at_property
+    }, page, puwylo);
+  };
+}(window));
+
+document.addEventListener('at-request-succeeded', function (event) {
+  
+  window.ttMETA = typeof window.ttMETA != "undefined" ? window.ttMETA : [];
+    if (event && event.detail) {
+        const tokens = event.detail.responseTokens;
+        if (tokens) {
+            tokens.forEach(function (token) {
+                window.ttMETA.push({
+                    CampaignName: token["activity.name"],
+                    CampaignId: token["activity.id"],
+                    RecipeName: token["experience.name"],
+                    RecipeId: token["experience.id"],
+                    OfferId: token["offer.id"],
+                    OfferName: token["offer.name"],
+                });
+            });
+        }
+    }
+  
+  
+  var detail = event.detail || {};
+  var responseTokens = detail.responseTokens || [];
+
+  if (responseTokens.length > 0) {
+    window.mboxRecipe = responseTokens.map(function (token) {
+      return {
+        campaign: token['activity.name'],
+        recipe: token['experience.name'],
+        token: token
+      };
+    });
+  }
+});
