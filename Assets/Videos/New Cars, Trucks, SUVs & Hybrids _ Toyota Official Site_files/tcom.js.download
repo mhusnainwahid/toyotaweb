@@ -1,0 +1,222 @@
+/* eslint-env browser */
+window.uxsConfig = (function (config) {
+  if (config) {
+    return config;
+  }
+  let initPromise = false;
+  const qaKey = 'aa_qa';
+  const qaSet = getQA();
+
+  const envRegex = /(prd-aem-tcom\.(.+)\.cepo-proxy\.tms\.aws|aem-author|www)\.toyota\.com/ig;
+  const environment = getEnvironment();
+  const queueName = '__analytics_queue__';
+  // each wave will be loaded in parallel but all will resolve before next wave
+  // add waves as needed
+  const defaultLoadOrder = {
+    first: ['https://nexus.toyota.com/toyotanational/t-com-s/Bootstrap.js']
+  };
+  if (environment === 'production') {
+    defaultLoadOrder.first = ['https://nexus.toyota.com/toyotanational/t-com-p/Bootstrap.js'];
+  }
+  const alt1 = {
+    first: [
+      '/analytics/uxs/tdr/uxs.js',
+      '/analytics/uxs/adobe/2_22/VisitorAPI.js'
+
+    ],
+    second: [
+      '/analytics/uxs/adobe/visitorapi_tmna.js',
+      '/analytics/uxs/xdlocal.js',
+      '/analytics/uxs/gvm.js',
+      '/analytics/uxs/gvm_custom.js',
+      '/analytics/uxs/uxs_tcom.js',
+      '/analytics/uxs/adobe/2_22/AppMeasurement.js'
+    ],
+    tier1: [
+      '/analytics/uxs/adobe/appm_tmna.js'
+    ],
+    delay: {
+      files: [],
+      delay: 3000
+    },
+    tier2: []
+  };
+  const bootstrap = (environment === 'production')
+    ? 'https://nexus.toyota.com/toyotanational/t-tdr-s/Bootstrap.js'
+    : 'https://nexus.toyota.com/toyotanational/t-tdr-s/Bootstrap.js';
+  alt1.tier2.push(bootstrap);
+  const alt2 = {
+    first: ['https://nexus-test.ensighten.com/toyotanational/v-test-09/Bootstrap.js']
+  };
+  const alt3 = {
+    first: [
+      '/analytics/uxs/tdr/uxs.js',
+      '/analytics/uxs/alloy/alloyConfig.js'
+
+    ],
+    second: [
+      'https://cdn1.adoberesources.net/alloy/2.6.4/alloy.min.js',
+      '/analytics/uxs/xdlocal.js',
+      '/analytics/uxs/gvm.js',
+      '/analytics/uxs/gvm_custom.js',
+      '/analytics/uxs/uxs_tcom.js'
+    ],
+    tier1: [
+      '/analytics/uxs/adobe/appm_tmna.js'
+    ],
+    delay: {
+      files: [],
+      delay: 3000
+    },
+    tier2: []
+  };
+  const qaLoadOrders = {
+    1: alt1,
+    2: alt2,
+    3: alt3
+  };
+  const _public = {};
+  const loadOrder = qaLoadOrders[qaSet] || defaultLoadOrder;
+
+  _public.asyncLoadScript = asyncLoadScript;
+  _public.queueName = queueName;
+  _public.loadOrder = loadOrder;
+  async function main () {
+    for (const i in loadOrder) {
+      const list = loadOrder[i];
+      if (Array.isArray(list)) {
+        await Promise.all(list.map(src => asyncLoadScript(src)));
+      } else {
+        await Promise.all(list.files.map(src => asyncLoadScript(src)));
+        if (list.delay && list.delay > 0) {
+          await new Promise((resolve) => setTimeout(resolve, list.delay));
+        }
+      }
+      console.log('done loading', i);
+    }
+    console.log('complete loading scripts');
+  }
+  function init () {
+    if (!initPromise) {
+      initPromise = main();
+      window.fireTag = fireTag;
+      window.triggerTag = fireTag;
+    }
+    return initPromise;
+  }
+
+  function getEnvironment () {
+    var p = 'production';
+    var s = 'staging';
+    return envRegex.test(location.hostname) ? p : s;
+    /*
+    if (window._dL && window._dL.page && window._dL.page.environment) {
+      return window._dL.page.environment === 'prod' ? p : s;
+    } else if (envRegex instanceof RegExp) {
+      return envRegex.test(location.hostname) ? p : s;
+    }
+    */
+  }
+
+  function fireTag (id, dv) {
+    dv = dv || {};
+    if (!dv.timestamp) {
+      dv.timestamp = Date.now();
+    }
+    dv.id = id;
+    window[queueName] = window[queueName] || [];
+    window[queueName].push({
+      event: id,
+      data: dv
+    });
+  }
+
+  function asyncLoadScript (a, dataset) {
+    return new Promise((resolve, reject) => {
+      var d = document.getElementsByTagName('script');
+      var e;
+      var b = d[0];
+      for (e = 0; e < d.length; e++) {
+        if (d[e].src === a && d[e].readyState && /loaded|complete/.test(d[e].readyState)) {
+          try {
+            resolve();
+          } catch (g) {
+            console.warn('Error', g.message);
+          } finally {
+            //
+          }
+        }
+      }
+      d = document.createElement('script');
+      d.type = 'text/javascript';
+      d.async = !0;
+      d.src = a;
+      if (typeof dataset === 'object') {
+        d.dataset = dataset;
+      }
+
+      d.onerror = function () {
+        this.addEventListener && (this.readyState = 'loaded');
+      };
+      d.onload = d.onreadystatechange = function () {
+        if (!this.readyState ||
+                this.readyState === 'complete' || this.readyState === 'loaded') {
+          this.onload = this.onreadystatechange = null;
+          this.addEventListener && (this.readyState = 'loaded');
+          try {
+            resolve.call(this);
+          } catch (g) {
+            reject.call(this, g.message);
+            console.warn('Error', g.message);
+          }
+        }
+      };
+      b.parentNode.insertBefore(d, b);
+    });
+  }
+
+  function getQA () {
+    const url = new URL(location.href);
+    const urlKey = url.searchParams.get(qaKey);
+    let sessionKey = '';
+    try {
+      sessionKey = window.sessionStorage.getItem(qaKey);
+    } catch (e) {
+      // recover
+    }
+    return urlKey || sessionKey;
+  }
+  function setQA (value) {
+    try {
+      window.sessionStorage.setItem(qaKey, value);
+    } catch (e) {
+      // recover
+      return '';
+    }
+    return 'reload to see changes';
+  }
+  function clearQA () {
+    try {
+      sessionStorage.removeItem(qaKey);
+    } catch (e) {
+
+    }
+  }
+  function qaAvail () {
+    return Object.keys(qaLoadOrders);
+  }
+
+  return {
+    init,
+    asyncLoadScript,
+    environment,
+    queueName,
+    QA: {
+      get: getQA,
+      set: setQA,
+      clear: clearQA,
+      available: qaAvail
+    }
+  };
+}(window.uxsConfig));
+window.uxsConfig.init();
